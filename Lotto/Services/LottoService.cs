@@ -9,15 +9,15 @@ namespace Lotto.Services
 {
     public class LottoService
     {
-        private readonly HttpClient client = new HttpClient();
+        private readonly HttpClient _client = new HttpClient();
 
         public async Task<List<string>> GetArchives(string archiveUrl)
         {
             var archiveUrls = new List<string>();
             try
             {
-                string responseBody = await client.GetStringAsync(archiveUrl);
-                HtmlDocument pageDocument = new HtmlDocument();
+                var responseBody = await _client.GetStringAsync(archiveUrl);
+                var pageDocument = new HtmlDocument();
                 pageDocument.LoadHtml(responseBody);
 
                 var baseArchive = pageDocument.DocumentNode.SelectNodes("(//div[contains(@class,'archive-box')])");
@@ -25,7 +25,6 @@ namespace Lotto.Services
                 {
                     foreach (var archiveNode in baseArchiveNode.ChildNodes["div"].ChildNodes["ul"].Descendants("li"))
                     {
-                        //Console.WriteLine(archiveNode.InnerText);
                         archiveUrls.Add(archiveNode.ChildNodes["a"].Attributes["href"].Value);
                     }
                 }
@@ -40,14 +39,14 @@ namespace Lotto.Services
 
         public async Task<HtmlNodeCollection> GetMonthlyDraws(string drawUrl)
         {
-            string responseBody = await client.GetStringAsync(drawUrl);
-            HtmlDocument pageDocument = new HtmlDocument();
+            var responseBody = await _client.GetStringAsync(drawUrl);
+            var pageDocument = new HtmlDocument();
             pageDocument.LoadHtml(responseBody);
             var monthlyDraw = pageDocument.DocumentNode.SelectNodes("(//div[@class='result-card'])");
             return monthlyDraw;
         }
 
-        public DateTime? GetDrawDate(HtmlNode currentDraw)
+        private static DateTime? GetDrawDate(HtmlNode currentDraw)
         {
             if (currentDraw?.ChildNodes["div"]?.ChildNodes["h2"]?.InnerText != null)
             {
@@ -56,7 +55,7 @@ namespace Lotto.Services
             return null;
         }
 
-        public string GetJackpot(HtmlNode currentDraw)
+        private static string GetJackpot(HtmlNode currentDraw)
         {
             try
             {
@@ -68,64 +67,62 @@ namespace Lotto.Services
             }
         }
 
-        public async Task<List<IndividualDraw>> GetLottoNumbers(HtmlNode currentDraw)
+        public async Task<List<DrawResult>> GetLottoNumbers(HtmlNode currentDraw)
         {
-            //Check for blank number
-            //if blank the next number is the bonus ball and will be stored as the key
-
-            // var resultCards = currentDraw.SelectNodes("//div[contains(@class, 'result-card__content')]");
-
-            var resultCards = currentDraw.SelectNodes("//div[@class='result-card']");
-
-            var monthlyResults = new List<IndividualDraw>();
-            foreach (var resultCard in resultCards)
-            {
-                Console.WriteLine(resultCard.InnerText);
-                var drawResults = GetWeeklyLottoNumbers(resultCard);
-                
-                monthlyResults.Add(drawResults);
-            }
-
-            //return new Dictionary<int, Array>() { { bonusBallNumber, lottoNumbers } };            
-            return monthlyResults;
+            return GetWeeklyLottoNumbersFromCurrentMonth(currentDraw);
         }
 
-        private IndividualDraw GetWeeklyLottoNumbers(HtmlNode resultCard)
+        private static List<DrawResult> GetWeeklyLottoNumbersFromCurrentMonth(HtmlNode currentDraw)
+        {
+            var weeklyDraws = new List<DrawResult>();
+            var orderedLists = currentDraw.SelectNodes("//ol[@class='draw-result']");
+            foreach (var orderedList in orderedLists)
+            {
+                var drawResult = new DrawResult
+                {
+                    //Step 3 - Get the Date
+                    DrawDate = GetDrawDate(currentDraw),
+
+                    //Step 4 - Get the Jackpot 
+                    Jackpot = GetJackpot(currentDraw)
+                };
+
+                var listItems = orderedList.SelectNodes("li");
+                drawResult.IndividualDraw = GetWeeklyLottoNumbers(listItems);
+                weeklyDraws.Add(drawResult);
+            }
+            return weeklyDraws;
+        }
+
+        private static IndividualDraw GetWeeklyLottoNumbers(HtmlNodeCollection currentWeekNode)
         {
             var lottoNumbers = new int[6];
             var lottoNumbersIndex = 0;
             var bonusBallNumber = -1;
             var blankNumber = false;
 
-            var orderedLists = resultCard.SelectNodes("//ol[@class='draw-result']");
-            foreach (var orderedList in orderedLists)
+            foreach (var listItem in currentWeekNode)
             {
+                if (bonusBallNumber != -1)
+                    break;
 
-                var listItems = orderedList.SelectNodes("li");
-                foreach (var listItem in listItems)
+                if (!blankNumber)
                 {
-                    if (bonusBallNumber != -1)
-                        break;
-
-                    if (!blankNumber)
-                    {
-                        if (string.IsNullOrEmpty(listItem.InnerText))
-                        { blankNumber = true; }
-                        else
-                        {
-                            lottoNumbers[lottoNumbersIndex] = int.Parse(listItem.InnerText);
-                        }
-                    }
+                    if (string.IsNullOrEmpty(listItem.InnerText))
+                    { blankNumber = true; }
                     else
                     {
-                        bonusBallNumber = int.Parse(listItem.InnerText);
+                        lottoNumbers[lottoNumbersIndex] = int.Parse(listItem.InnerText);
                     }
-                    lottoNumbersIndex++;
                 }
-
+                else
+                {
+                    bonusBallNumber = int.Parse(listItem.InnerText);
+                }
+                lottoNumbersIndex++;
             }
 
-            return new IndividualDraw()
+            var currentWeekDraw = new IndividualDraw()
             {
                 BonusBallNumber = bonusBallNumber,
                 LottoNumbers = new LottoNumbers()
@@ -138,6 +135,8 @@ namespace Lotto.Services
                     BallSix = lottoNumbers[5],
                 }
             };
+
+            return currentWeekDraw;
         }
     }
 }

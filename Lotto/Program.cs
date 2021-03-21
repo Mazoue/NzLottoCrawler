@@ -2,7 +2,7 @@
 using Lotto.Datamodels;
 using Lotto.Services;
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Lotto
@@ -24,6 +24,8 @@ namespace Lotto
         {
             var lottoService = new LottoService();
 
+            var drawResults = new List<DrawResult>();
+
             Console.WriteLine("Hello World!");
             var baseUrl = "http://lottoresults.co.nz";
             var baseArchiveUrl = "/lotto/archive";
@@ -42,21 +44,17 @@ namespace Lotto
                 // Strike Numbers?
                 foreach (var draw in _monthlyDraws)
                 {
-                    var drawResult = new DrawResult
-                    {
-                        //Step 3 - Get the Date
-                        DrawDate = lottoService.GetDrawDate(draw),
-
-                        //Step 4 - Get the Jackpot 
-                        Jackpot = lottoService.GetJackpot(draw)
-                    };
-
                     //Step 5 - Get the Lotto numbers
-                    //drawResult.IndividualDraw = await lottoService.GetLottoNumbers(draw);
-                    var x = await lottoService.GetLottoNumbers(draw);
+                    var results = await lottoService.GetLottoNumbers(draw);
 
-                    PrintDrawResults(drawResult);
+                    drawResults.AddRange(results);
                 }
+                
+            }
+
+            foreach (var drawResult in drawResults)
+            {
+                PrintDrawResults(drawResult);
             }
 
         }
@@ -66,7 +64,7 @@ namespace Lotto
             Console.WriteLine($"DrawDate: {currentDraw.DrawDate}");
             Console.WriteLine($"JackPot: {currentDraw.Jackpot}");
             var lottoString = $"{currentDraw.IndividualDraw.LottoNumbers.BallOne},{currentDraw.IndividualDraw.LottoNumbers.BallTwo},{currentDraw.IndividualDraw.LottoNumbers.BallThree},{currentDraw.IndividualDraw.LottoNumbers.BallFour},{currentDraw.IndividualDraw.LottoNumbers.BallFive},{currentDraw.IndividualDraw.LottoNumbers.BallSix}";
-           
+
             Console.WriteLine($"Lotto Numbers: {lottoString}   Bonus Ball Number: {currentDraw.IndividualDraw.BonusBallNumber}");
         }
 
