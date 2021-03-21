@@ -8,7 +8,7 @@ namespace Lotto.Datamodels
     {
         public DateTime? DrawDate { get; set; }
         public string Jackpot { get; set; }
-        public LottoNumbers LottoNumbers { get; set; }
+        public IndividualDraw IndividualDraw { get; set; }
         public Strike Strike { get; set; }        
         public int PowerBallNumber { get; set; }
 
