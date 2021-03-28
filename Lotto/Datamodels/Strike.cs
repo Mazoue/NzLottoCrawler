@@ -5,7 +5,10 @@ using System.Text;
 namespace Lotto.Datamodels
 {
     public class Strike
-    {        
-        public Array StrikeNumbers { get; set; }
+    {
+        public int BallOne { get; set; }
+        public int BallTwo { get; set; }
+        public int BallThree { get; set; }
+        public int BallFour { get; set; }
     }
 }

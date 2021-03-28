@@ -63,9 +63,9 @@ namespace Lotto
         {
             Console.WriteLine($"DrawDate: {currentDraw.DrawDate}");
             Console.WriteLine($"JackPot: {currentDraw.Jackpot}");
-            var lottoString = $"{currentDraw.IndividualDraw.LottoNumbers.BallOne},{currentDraw.IndividualDraw.LottoNumbers.BallTwo},{currentDraw.IndividualDraw.LottoNumbers.BallThree},{currentDraw.IndividualDraw.LottoNumbers.BallFour},{currentDraw.IndividualDraw.LottoNumbers.BallFive},{currentDraw.IndividualDraw.LottoNumbers.BallSix}";
+            var lottoString = $"{currentDraw.IndividualDraw.BallOne},{currentDraw.IndividualDraw.BallTwo},{currentDraw.IndividualDraw.BallThree},{currentDraw.IndividualDraw.BallFour},{currentDraw.IndividualDraw.BallFive},{currentDraw.IndividualDraw.BallSix}";
 
-            Console.WriteLine($"Lotto Numbers: {lottoString}   Bonus Ball Number: {currentDraw.IndividualDraw.BonusBallNumber}");
+            Console.WriteLine($"Lotto Numbers: {lottoString}   Bonus Ball Number: {currentDraw.IndividualDraw.BonusBall}");
         }
 
     }

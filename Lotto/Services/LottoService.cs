@@ -2,6 +2,7 @@
 using Lotto.Datamodels;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -46,25 +47,25 @@ namespace Lotto.Services
             return monthlyDraw;
         }
 
-        private static DateTime? GetDrawDate(HtmlNode currentDraw)
+        private static DateTime? GetDrawDate(List<string> currentDrawInnerText)
         {
-            if (currentDraw?.ChildNodes["div"]?.ChildNodes["h2"]?.InnerText != null)
+            var drawDate = "";
+            foreach (var innerTextLine in currentDrawInnerText.Where(innerTextLine => innerTextLine.Contains("Lotto Result for")))
             {
-                return Convert.ToDateTime(currentDraw.ChildNodes["div"].ChildNodes["h2"].InnerText.Substring(currentDraw.ChildNodes["div"].ChildNodes["h2"].InnerText.IndexOf(",") + 1).Trim());
+                drawDate = innerTextLine[(innerTextLine.IndexOf(",", StringComparison.Ordinal) + 1)..];
             }
-            return null;
+            return DateTime.Parse(drawDate.Trim());
         }
 
-        private static string GetJackpot(HtmlNode currentDraw)
+        private static string GetJackpot(List<string> currentDrawInnerText)
         {
-            try
+            var jackPot = "";
+            foreach (var innerTextLine in currentDrawInnerText.Where(innerTextLine => innerTextLine.Contains("Jackpot:")))
             {
-                return currentDraw.ChildNodes[3].ChildNodes[1].ChildNodes[3].InnerText;
+                jackPot = innerTextLine[(innerTextLine.IndexOf(":", StringComparison.Ordinal) + 1)..];
             }
-            catch (Exception ex)
-            {
-                return $"Failed to get jackpot. Error :{ex.Message}";
-            }
+
+            return jackPot.Trim();
         }
 
         public async Task<List<DrawResult>> GetLottoNumbers(HtmlNode currentDraw)
@@ -74,69 +75,127 @@ namespace Lotto.Services
 
         private static List<DrawResult> GetWeeklyLottoNumbersFromCurrentMonth(HtmlNode currentDraw)
         {
+            var currentDrawInnerText = currentDraw.InnerText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            var currentDrawInnerHtmlChunk = currentDraw.InnerHtml.ToString();
+            var currentDrawInnerHtml =
+                currentDrawInnerHtmlChunk.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+            var getNumbersNodes = GetNumbersNodes(currentDrawInnerHtmlChunk);
+
             var weeklyDraws = new List<DrawResult>();
-            var orderedLists = currentDraw.SelectNodes("//ol[@class='draw-result']");
-            foreach (var orderedList in orderedLists)
+
+            var drawResult = new DrawResult
             {
-                var drawResult = new DrawResult
-                {
-                    //Step 3 - Get the Date
-                    DrawDate = GetDrawDate(currentDraw),
+                //Step 3 - Get the Date
+                DrawDate = GetDrawDate(currentDrawInnerText.ToList()),
 
-                    //Step 4 - Get the Jackpot 
-                    Jackpot = GetJackpot(currentDraw)
-                };
+                //Step 4 - Get the Jackpot 
+                Jackpot = GetJackpot(currentDrawInnerText.ToList()),
 
-                var listItems = orderedList.SelectNodes("li");
-                drawResult.IndividualDraw = GetWeeklyLottoNumbers(listItems);
-                weeklyDraws.Add(drawResult);
-            }
+                IndividualDraw = GetDrawLottoNumbers(getNumbersNodes.LottoNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
+                PowerBallNumber = GetDrawPowerBall(getNumbersNodes.PowerBallsHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
+                Strike = GetDrawStrikeNumbers(getNumbersNodes.StrikeNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList())
+            };
+
+            weeklyDraws.Add(drawResult);
+
             return weeklyDraws;
         }
 
-        private static IndividualDraw GetWeeklyLottoNumbers(HtmlNodeCollection currentWeekNode)
+        private static IndividualDraw GetNumbersNodes(string currentDrawInnerHtml)
         {
-            var lottoNumbers = new int[6];
-            var lottoNumbersIndex = 0;
-            var bonusBallNumber = -1;
-            var blankNumber = false;
+            var lottoNumberString = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("<ol class=\"draw-result\">", StringComparison.Ordinal) + 1);
 
-            foreach (var listItem in currentWeekNode)
+            var weeklyLottoNumbers = lottoNumberString.Substring(0, lottoNumberString.IndexOf("</ol>", StringComparison.Ordinal));
+
+            var currentDrawInnerHtmlTemp = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("</ol>", StringComparison.Ordinal) + 5);
+
+            var powerBall = currentDrawInnerHtmlTemp.Substring(
+                currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">", StringComparison.Ordinal) + 1, currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
+
+            currentDrawInnerHtmlTemp = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("</ol>", StringComparison.Ordinal) + 5);
+
+            var strikeNumbers = currentDrawInnerHtmlTemp.Substring(
+                currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">", StringComparison.Ordinal) + 1, currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
+
+            return new IndividualDraw()
             {
-                if (bonusBallNumber != -1)
-                    break;
+                LottoNumbersHtml = weeklyLottoNumbers,
+                PowerBallsHtml = powerBall,
+                StrikeNumbersHtml = strikeNumbers
+            };
+        }
 
-                if (!blankNumber)
+        private static LottoNumbers GetDrawLottoNumbers(List<string> currentWeekNumbers)
+        {
+            var lottoNumbers = new List<int>();
+            foreach (var currentNode in currentWeekNumbers)
+            {
+                if (currentNode.Contains("draw-result__ball"))
                 {
-                    if (string.IsNullOrEmpty(listItem.InnerText))
-                    { blankNumber = true; }
+                    if (currentNode.Trim().StartsWith("<li class=\"draw-result__ball"))
+                    {
+                        var substringLength = currentNode.LastIndexOf("<", StringComparison.Ordinal) - currentNode.IndexOf(">", StringComparison.Ordinal) - 1;
+                        var lottoNumber = currentNode.Substring(currentNode.IndexOf(">", StringComparison.Ordinal) + 1, substringLength);
+                        lottoNumbers.Add(Convert.ToInt32(lottoNumber));
+                    }
                     else
                     {
-                        lottoNumbers[lottoNumbersIndex] = int.Parse(listItem.InnerText);
+                        var bonusBallNode = currentNode.Substring(currentNode.IndexOf("</li>", StringComparison.Ordinal) + 5);
+                        var substringLength = bonusBallNode.LastIndexOf("<", StringComparison.Ordinal) - bonusBallNode.IndexOf(">", StringComparison.Ordinal) - 1;
+                        var lottoNumber = bonusBallNode.Substring(bonusBallNode.IndexOf(">", StringComparison.Ordinal) + 1, substringLength);
+                        lottoNumbers.Add(Convert.ToInt32(lottoNumber));
                     }
                 }
-                else
-                {
-                    bonusBallNumber = int.Parse(listItem.InnerText);
-                }
-                lottoNumbersIndex++;
             }
 
-            var currentWeekDraw = new IndividualDraw()
+            return new LottoNumbers()
             {
-                BonusBallNumber = bonusBallNumber,
-                LottoNumbers = new LottoNumbers()
-                {
-                    BallOne = lottoNumbers[0],
-                    BallTwo = lottoNumbers[1],
-                    BallThree = lottoNumbers[2],
-                    BallFour = lottoNumbers[3],
-                    BallFive = lottoNumbers[4],
-                    BallSix = lottoNumbers[5],
-                }
+                BallOne = lottoNumbers[0],
+                BallTwo = lottoNumbers[1],
+                BallThree = lottoNumbers[2],
+                BallFour = lottoNumbers[3],
+                BallFive = lottoNumbers[4],
+                BallSix = lottoNumbers[5],
+                BonusBall = lottoNumbers[6]
             };
+        }
+        private static int GetDrawPowerBall(List<string> powerBallNumbers)
+        {
+            var powerBallNumber = new int();
+            foreach (var currentNode in powerBallNumbers)
+            {
+                if (currentNode.Contains("draw-result__ball"))
+                {
+                    var substringLength = currentNode.LastIndexOf("<", StringComparison.Ordinal) - currentNode.IndexOf(">", StringComparison.Ordinal) - 1;
+                    var lottoNumber = currentNode.Substring(currentNode.IndexOf(">", StringComparison.Ordinal) + 1, substringLength);
+                    powerBallNumber = (Convert.ToInt32(lottoNumber));
+                }
+            }
 
-            return currentWeekDraw;
+            return powerBallNumber;
+        }
+
+        private static Strike GetDrawStrikeNumbers(List<string> currentWeekStrike)
+        {
+            var lottoNumbers = new List<int>();
+            foreach (var currentNode in currentWeekStrike)
+            {
+                if (currentNode.Contains("draw-result__ball"))
+                {
+                    var substringLength = currentNode.LastIndexOf("<", StringComparison.Ordinal) - currentNode.IndexOf(">", StringComparison.Ordinal - 1);
+                    var lottoNumber = currentNode.Substring(currentNode.IndexOf(">", StringComparison.Ordinal) + 1, substringLength);
+                    lottoNumbers.Add(Convert.ToInt32(lottoNumber));
+                }
+            }
+
+            return new Strike()
+            {
+                BallOne = lottoNumbers[0],
+                BallTwo = lottoNumbers[1],
+                BallThree = lottoNumbers[2],
+                BallFour = lottoNumbers[3]
+            };
         }
     }
 }

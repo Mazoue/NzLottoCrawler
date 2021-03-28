@@ -13,5 +13,7 @@ namespace Lotto.Datamodels
         public int BallFive { get; set; }
         public int BallSix { get; set; }
 
+        public int BonusBall { get; set; }
+
     }
 }

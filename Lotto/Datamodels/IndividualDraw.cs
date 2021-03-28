@@ -6,8 +6,9 @@ namespace Lotto.Datamodels
 {
     public class IndividualDraw
     {        
-        public LottoNumbers LottoNumbers { get; set; }
-        public int BonusBallNumber { get; set; }
+        public string LottoNumbersHtml { get; set; }
+        public string PowerBallsHtml { get; set; }
+        public string StrikeNumbersHtml { get; set; }
 
     }
 }
