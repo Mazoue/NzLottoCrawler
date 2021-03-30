@@ -47,9 +47,12 @@ namespace Lotto
                     //Step 5 - Get the Lotto numbers
                     var results = await lottoService.GetLottoNumbers(draw);
 
-                    drawResults.AddRange(results);
+                    if (results != null)
+                    {
+                        drawResults.AddRange(results);
+                    }
                 }
-                
+
             }
 
             foreach (var drawResult in drawResults)

@@ -84,46 +84,69 @@ namespace Lotto.Services
 
             var weeklyDraws = new List<DrawResult>();
 
-            var drawResult = new DrawResult
+            if (getNumbersNodes != null)
             {
-                //Step 3 - Get the Date
-                DrawDate = GetDrawDate(currentDrawInnerText.ToList()),
+                var drawResult = new DrawResult
+                {
+                    //Step 3 - Get the Date
+                    DrawDate = GetDrawDate(currentDrawInnerText.ToList()),
 
-                //Step 4 - Get the Jackpot 
-                Jackpot = GetJackpot(currentDrawInnerText.ToList()),
+                    //Step 4 - Get the Jackpot 
+                    Jackpot = GetJackpot(currentDrawInnerText.ToList()),
 
-                IndividualDraw = GetDrawLottoNumbers(getNumbersNodes.LottoNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
-                PowerBallNumber = GetDrawPowerBall(getNumbersNodes.PowerBallsHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
-                Strike = GetDrawStrikeNumbers(getNumbersNodes.StrikeNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList())
-            };
+                    IndividualDraw = GetDrawLottoNumbers(getNumbersNodes.LottoNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
+                    PowerBallNumber = GetDrawPowerBall(getNumbersNodes.PowerBallsHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList()),
+                    Strike = GetDrawStrikeNumbers(getNumbersNodes.StrikeNumbersHtml.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList())
+                };
 
-            weeklyDraws.Add(drawResult);
+                weeklyDraws.Add(drawResult);
 
-            return weeklyDraws;
+                return weeklyDraws;
+            }
+
+            return null;
         }
 
         private static IndividualDraw GetNumbersNodes(string currentDrawInnerHtml)
         {
-            var lottoNumberString = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("<ol class=\"draw-result\">", StringComparison.Ordinal) + 1);
-
-            var weeklyLottoNumbers = lottoNumberString.Substring(0, lottoNumberString.IndexOf("</ol>", StringComparison.Ordinal));
-
-            var currentDrawInnerHtmlTemp = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("</ol>", StringComparison.Ordinal) + 5);
-
-            var powerBall = currentDrawInnerHtmlTemp.Substring(
-                currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">", StringComparison.Ordinal) + 1, currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
-
-            currentDrawInnerHtmlTemp = currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("</ol>", StringComparison.Ordinal) + 5);
-
-            var strikeNumbers = currentDrawInnerHtmlTemp.Substring(
-                currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">", StringComparison.Ordinal) + 1, currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
-
-            return new IndividualDraw()
+            try
             {
-                LottoNumbersHtml = weeklyLottoNumbers,
-                PowerBallsHtml = powerBall,
-                StrikeNumbersHtml = strikeNumbers
-            };
+                var lottoNumberString = currentDrawInnerHtml.Substring(
+                    currentDrawInnerHtml.IndexOf("<ol class=\"draw-result\">", StringComparison.Ordinal) + 1);
+
+                var weeklyLottoNumbers =
+                    lottoNumberString.Substring(0, lottoNumberString.IndexOf("</ol>", StringComparison.Ordinal));
+
+                var currentDrawInnerHtmlTemp =
+                    currentDrawInnerHtml.Substring(currentDrawInnerHtml.IndexOf("</ol>", StringComparison.Ordinal) + 5);
+
+                var powerBall = currentDrawInnerHtmlTemp.Substring(
+                    currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">",
+                        StringComparison.Ordinal) + 1,
+                    currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
+
+                currentDrawInnerHtmlTemp =
+                    currentDrawInnerHtmlTemp.Substring(
+                        currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal) + 5);
+
+                var strikeNumbers = currentDrawInnerHtmlTemp.Substring(
+                    currentDrawInnerHtmlTemp.IndexOf("<ol class=\"draw-result draw-result--sub\">",
+                        StringComparison.Ordinal) + 1,
+                    currentDrawInnerHtmlTemp.IndexOf("</ol>", StringComparison.Ordinal));
+
+                return new IndividualDraw()
+                {
+                    LottoNumbersHtml = weeklyLottoNumbers,
+                    PowerBallsHtml = powerBall,
+                    StrikeNumbersHtml = strikeNumbers
+                };
+            }
+            catch (Exception ex)
+            {
+                var t = ex;
+            }
+
+            return null;
         }
 
         private static LottoNumbers GetDrawLottoNumbers(List<string> currentWeekNumbers)
@@ -183,9 +206,19 @@ namespace Lotto.Services
             {
                 if (currentNode.Contains("draw-result__ball"))
                 {
-                    var substringLength = currentNode.LastIndexOf("<", StringComparison.Ordinal) - currentNode.IndexOf(">", StringComparison.Ordinal - 1);
-                    var lottoNumber = currentNode.Substring(currentNode.IndexOf(">", StringComparison.Ordinal) + 1, substringLength);
-                    lottoNumbers.Add(Convert.ToInt32(lottoNumber));
+                    try
+                    {
+                        var tempNode = currentNode.Trim();
+                        var substringLength = (tempNode.LastIndexOf("<", StringComparison.Ordinal) - 1) -
+                                              tempNode.IndexOf(">", StringComparison.Ordinal + 1);
+                        var lottoNumber = tempNode.Substring(tempNode.IndexOf(">", StringComparison.Ordinal) + 1,
+                            substringLength);
+                        lottoNumbers.Add(Convert.ToInt32(lottoNumber));
+                    }
+                    catch (Exception ex)
+                    {
+                        var t = ex;
+                    }
                 }
             }
 
