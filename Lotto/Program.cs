@@ -3,18 +3,11 @@ using Lotto.Datamodels;
 using Lotto.Services;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Lotto
-{       //Step 1 - Get URLs of each previous month
-        //Step 2 - Foreach previous month get all the draws for that month
-        // Foreach draw 
-        //Step 3 - Get the Date
-        //Step 4 - Get the Jackpot status
-        //Step 5 - Get the Lotto numbers
-        //Step 6 - Get the BonusBall number
-        //Step 7 - Get the PowerBall Number
-        //Step 8 - Get the Strike numbers
+{
     class Program
     {
 
@@ -26,7 +19,6 @@ namespace Lotto
 
             var drawResults = new List<DrawResult>();
 
-            Console.WriteLine("Hello World!");
             var baseUrl = "http://lottoresults.co.nz";
             var baseArchiveUrl = "/lotto/archive";
 
@@ -57,19 +49,19 @@ namespace Lotto
 
             foreach (var drawResult in drawResults)
             {
-                PrintDrawResults(drawResult);
+                await PrintDrawResults(drawResult);
             }
 
+            Console.WriteLine("Finished");
+
         }
 
-        private static void PrintDrawResults(DrawResult currentDraw)
+        private static async Task PrintDrawResults(DrawResult currentDraw)
         {
-            Console.WriteLine($"DrawDate: {currentDraw.DrawDate}");
-            Console.WriteLine($"JackPot: {currentDraw.Jackpot}");
-            var lottoString = $"{currentDraw.IndividualDraw.BallOne},{currentDraw.IndividualDraw.BallTwo},{currentDraw.IndividualDraw.BallThree},{currentDraw.IndividualDraw.BallFour},{currentDraw.IndividualDraw.BallFive},{currentDraw.IndividualDraw.BallSix}";
-
-            Console.WriteLine($"Lotto Numbers: {lottoString}   Bonus Ball Number: {currentDraw.IndividualDraw.BonusBall}");
+            await using var outputFile = new StreamWriter(Path.Combine("D:\\Temp\\", "LottoNumbers.txt"), true);
+            await outputFile.WriteLineAsync($"{currentDraw.IndividualDraw.BallOne},{currentDraw.IndividualDraw.BallTwo},{currentDraw.IndividualDraw.BallThree},{currentDraw.IndividualDraw.BallFour},{currentDraw.IndividualDraw.BallFive},{currentDraw.IndividualDraw.BallSix},{currentDraw.IndividualDraw.BonusBall},{currentDraw.PowerBallNumber}");
         }
+
 
     }
 
